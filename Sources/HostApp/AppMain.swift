@@ -186,7 +186,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         if config.foldAllIntoSingleMenu {
             let parent = NSMenuItem(title: config.localizedNewMenuTitle, action: nil, keyEquivalent: "")
-            parent.image = NSImage(systemSymbolName: "plus.square.on.square", accessibilityDescription: nil)
+            parent.image = config.submenuIconColor.renderedSymbolImage(name: "plus.square.on.square")
             let sub = NSMenu(title: config.localizedNewMenuTitle)
             for item in enabledItems {
                 let tag = nextTag
@@ -199,7 +199,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         } else {
             if !foldedNew.isEmpty {
                 let parent = NSMenuItem(title: config.localizedNewMenuTitle, action: nil, keyEquivalent: "")
-                parent.image = NSImage(systemSymbolName: "doc.badge.plus", accessibilityDescription: nil)
+                parent.image = config.submenuIconColor.renderedSymbolImage(name: "doc.badge.plus")
                 let sub = NSMenu(title: config.localizedNewMenuTitle)
                 for item in foldedNew {
                     let tag = nextTag
@@ -213,7 +213,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
             if !foldedQA.isEmpty {
                 let parent = NSMenuItem(title: config.localizedQuickActionsTitle, action: nil, keyEquivalent: "")
-                parent.image = NSImage(systemSymbolName: "bolt.circle", accessibilityDescription: nil)
+                parent.image = config.submenuIconColor.renderedSymbolImage(name: "bolt.circle")
                 let sub = NSMenu(title: config.localizedQuickActionsTitle)
                 for item in foldedQA {
                     let tag = nextTag

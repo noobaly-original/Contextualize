@@ -94,7 +94,7 @@ public enum IconColorOption: String, Codable, CaseIterable, Identifiable {
             return nil
         }
         let symbolConfig = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .medium)
-            .applying(NSImage.SymbolConfiguration(hierarchicalColor: nsColor))
+            .applying(NSImage.SymbolConfiguration.preferringMonochrome())
         let configured = baseSymbol.withSymbolConfiguration(symbolConfig) ?? baseSymbol
 
         let targetSize = NSSize(width: 16, height: 16)
