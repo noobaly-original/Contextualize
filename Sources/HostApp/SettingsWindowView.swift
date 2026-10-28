@@ -522,6 +522,21 @@ struct SettingsWindowView: View {
     private var generalSettingsTab: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                GroupBox(label: Label(isTR ? "Başlangıç ve Menü Çubuğu" : "Startup & Menu Bar", systemImage: "power.circle.fill")) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Toggle(
+                            isTR ? "Bilgisayar açıldığında menü çubuğunda gizli olarak başlat" : "Start at startup hidden in Menu Bar",
+                            isOn: $viewModel.config.launchAtLoginHidden
+                        )
+                        Text(isTR
+                             ? "Etkinleştirildiğinde macOS açılışında ayarlar penceresini açmadan doğrudan üst menü çubuğunda (arka planda) çalışmaya başlar."
+                             : "When enabled, Contextualize launches silently in the top menu bar at macOS login without opening the settings window.")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(10)
+                }
+
                 GroupBox(label: Label(isTR ? "Katlanabilir Alt Menü Başlıkları" : "Foldable Submenu Titles", systemImage: "menubar.rectangle")) {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {

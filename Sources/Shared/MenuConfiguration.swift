@@ -388,6 +388,7 @@ public struct MenuConfiguration: Codable, Equatable {
     public var showOnSelectedFolders: Bool
     public var showOnSelectedFiles: Bool
     public var revealCreatedFileInFinder: Bool
+    public var launchAtLoginHidden: Bool
     public var terminalAppBundleID: String
     public var monitoredDirectories: [String]
     public var items: [ContextMenuItem]
@@ -404,6 +405,7 @@ public struct MenuConfiguration: Codable, Equatable {
         showOnSelectedFolders: Bool = true,
         showOnSelectedFiles: Bool = true,
         revealCreatedFileInFinder: Bool = false,
+        launchAtLoginHidden: Bool = false,
         terminalAppBundleID: String = "com.apple.Terminal",
         monitoredDirectories: [String] = MenuConfiguration.defaultMonitoredDirectories(),
         items: [ContextMenuItem] = MenuConfiguration.defaultItems()
@@ -419,6 +421,7 @@ public struct MenuConfiguration: Codable, Equatable {
         self.showOnSelectedFolders = showOnSelectedFolders
         self.showOnSelectedFiles = showOnSelectedFiles
         self.revealCreatedFileInFinder = revealCreatedFileInFinder
+        self.launchAtLoginHidden = launchAtLoginHidden
         self.terminalAppBundleID = terminalAppBundleID
         self.monitoredDirectories = monitoredDirectories
         self.items = items
@@ -436,6 +439,7 @@ public struct MenuConfiguration: Codable, Equatable {
         case showOnSelectedFolders
         case showOnSelectedFiles
         case revealCreatedFileInFinder = "autoRevealInFinderWindow"
+        case launchAtLoginHidden
         case terminalAppBundleID
         case monitoredDirectories
         case items
@@ -454,6 +458,7 @@ public struct MenuConfiguration: Codable, Equatable {
         self.showOnSelectedFolders = try c.decodeIfPresent(Bool.self, forKey: .showOnSelectedFolders) ?? true
         self.showOnSelectedFiles = try c.decodeIfPresent(Bool.self, forKey: .showOnSelectedFiles) ?? true
         self.revealCreatedFileInFinder = try c.decodeIfPresent(Bool.self, forKey: .revealCreatedFileInFinder) ?? false
+        self.launchAtLoginHidden = try c.decodeIfPresent(Bool.self, forKey: .launchAtLoginHidden) ?? false
         self.terminalAppBundleID = try c.decodeIfPresent(String.self, forKey: .terminalAppBundleID) ?? "com.apple.Terminal"
         self.monitoredDirectories = try c.decodeIfPresent([String].self, forKey: .monitoredDirectories) ?? MenuConfiguration.defaultMonitoredDirectories()
         self.items = try c.decodeIfPresent([ContextMenuItem].self, forKey: .items) ?? MenuConfiguration.defaultItems()

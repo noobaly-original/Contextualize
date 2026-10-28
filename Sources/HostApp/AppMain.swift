@@ -1,6 +1,50 @@
 import Cocoa
 import SwiftUI
 
+final class LaunchAtLoginManager {
+    static let shared = LaunchAtLoginManager()
+
+    private init() {}
+
+    var launchAgentURL: URL {
+        URL(fileURLWithPath: ConfigStore.shared.realUserHomePath)
+            .appendingPathComponent("Library/LaunchAgents/com.contextmenustudio.app.plist")
+    }
+
+    var isEnabledOnDisk: Bool {
+        FileManager.default.fileExists(atPath: launchAgentURL.path)
+    }
+
+    func setEnabled(_ enabled: Bool) {
+        let fm = FileManager.default
+        let plistURL = launchAgentURL
+        if enabled {
+            let dirURL = plistURL.deletingLastPathComponent()
+            try? fm.createDirectory(at: dirURL, withIntermediateDirectories: true)
+
+            let preferredAppBinary = "/Applications/ContextMenuStudio.app/Contents/MacOS/ContextMenuStudio"
+            let executablePath = fm.fileExists(atPath: preferredAppBinary)
+                ? preferredAppBinary
+                : (Bundle.main.executablePath ?? preferredAppBinary)
+
+            let plistDict: [String: Any] = [
+                "Label": ConfigConstants.appBundleID,
+                "ProgramArguments": [executablePath, "--background"],
+                "RunAtLoad": true,
+                "KeepAlive": false,
+                "ProcessType": "Interactive"
+            ]
+            if let data = try? PropertyListSerialization.data(fromPropertyList: plistDict, format: .xml, options: 0) {
+                try? data.write(to: plistURL, options: .atomic)
+            }
+        } else {
+            if fm.fileExists(atPath: plistURL.path) {
+                try? fm.removeItem(at: plistURL)
+            }
+        }
+    }
+}
+
 final class ExtensionManager {
     static let shared = ExtensionManager()
 
@@ -78,6 +122,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusMenuItemsMap: [Int: ContextMenuItem] = [:]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Default to menu-bar-only mode (.accessory) so background startup has no Dock icon or window
+        NSApp.setActivationPolicy(.accessory)
+
+        // Sync LaunchAgent state with config
+        if LaunchAtLoginManager.shared.isEnabledOnDisk != viewModel.config.launchAtLoginHidden {
+            LaunchAtLoginManager.shared.setEnabled(viewModel.config.launchAtLoginHidden)
+        }
+
         // Ensure initial configuration is saved & synced to container paths
         ConfigStore.shared.save(viewModel.config, broadcast: true)
 
@@ -89,7 +141,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         setupDistributedNotifications()
 
         viewModel.onConfigChanged = { [weak self] in
-            self?.rebuildStatusBarMenu()
+            guard let self = self else { return }
+            LaunchAtLoginManager.shared.setEnabled(self.viewModel.config.launchAtLoginHidden)
+            self.rebuildStatusBarMenu()
         }
 
         // Show Settings window on launch unless launched silently in background
@@ -253,6 +307,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         refreshItem.image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: nil)
         menu.addItem(refreshItem)
 
+        let startupItem = NSMenuItem(
+            title: isTR ? "Başlangıçta Menü Çubuğunda Gizli Başlat" : "Start at Login (Hidden in Menu Bar)",
+            action: #selector(toggleStartupAction),
+            keyEquivalent: ""
+        )
+        startupItem.target = self
+        startupItem.state = config.launchAtLoginHidden ? .on : .off
+        menu.addItem(startupItem)
+
         menu.addItem(.separator())
 
         let quitItem = NSMenuItem(
@@ -290,6 +353,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc private func refreshExtensionAction() {
         viewModel.refreshFinderExtension()
+    }
+
+    @objc private func toggleStartupAction() {
+        viewModel.config.launchAtLoginHidden.toggle()
     }
 
     @objc private func quitAction() {
