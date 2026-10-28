@@ -1,0 +1,10 @@
+# Build artifacts
+build/
+*.o
+*.dSYM/
+
+# macOS Finder metadata
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
