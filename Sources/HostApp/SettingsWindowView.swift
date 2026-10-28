@@ -60,15 +60,19 @@ final class MenuSettingsViewModel: ObservableObject {
     }
 
     func addActionItem() {
+        let defaultAppPath = FileManager.default.fileExists(atPath: "/Applications/Antigravity.app")
+            ? "/Applications/Antigravity.app"
+            : (FileManager.default.fileExists(atPath: "/Applications/Antigravity IDE.app") ? "/Applications/Antigravity IDE.app" : "")
         let newItem = ContextMenuItem(
-            titleEN: "Custom Terminal Command",
-            titleTR: "Özel Terminal Komutu",
-            iconSymbol: "terminal",
+            titleEN: defaultAppPath.isEmpty ? "Open with App" : "Open with Antigravity",
+            titleTR: defaultAppPath.isEmpty ? "Uygulama ile Aç" : "Antigravity ile Aç",
+            iconSymbol: "sparkles",
             useSystemFileIcon: false,
+            customAppOrIconPath: defaultAppPath,
             isEnabled: true,
             isFolded: false,
             submenuGroup: .quickActions,
-            actionKind: .customCommand,
+            actionKind: .openWithApp,
             customShellCommand: "open -a Terminal \"$CONTEXT_DIR\""
         )
         config.items.append(newItem)
@@ -378,7 +382,7 @@ struct SettingsWindowView: View {
                 .buttonStyle(.borderedProminent)
 
                 Button(action: { viewModel.addActionItem() }) {
-                    Label(isTR ? "+ Hızlı İşlem / Terminal Ekle" : "+ Add Quick Action / Command", systemImage: "terminal")
+                    Label(isTR ? "+ Uygulama ile Aç / İşlem Ekle" : "+ Open with App / Action", systemImage: "app.badge")
                 }
                 .buttonStyle(.bordered)
 
@@ -1038,29 +1042,93 @@ struct ItemEditorSheet: View {
                             isOn: $editorModel.item.openAfterCreation
                         )
                     }
+                } else if editorModel.item.actionKind == .openWithApp {
+                    Section {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(isTR ? "Hedef Uygulama (.app):" : "Target Application (.app):")
+                                .font(.system(size: 12, weight: .semibold))
+                            HStack(spacing: 8) {
+                                if let icon = editorModel.item.resolvedIcon() {
+                                    Image(nsImage: icon)
+                                        .resizable()
+                                        .frame(width: 24, height: 24)
+                                }
+                                TextField("/Applications/Antigravity.app", text: $editorModel.item.customAppOrIconPath)
+                                    .textFieldStyle(.roundedBorder)
+                                Button(isTR ? "Uygulama Seç..." : "Choose App...") {
+                                    chooseAppOrIcon(onlyApps: true)
+                                }
+                            }
+                            Text(isTR
+                                 ? "Seçtiğiniz uygulamanın (ör. Antigravity, Zed, VS Code) kendi orijinal ikonu sağ tık menüsünde otomatik kullanılır ve sağ tıklanan klasör o uygulamayla açılır."
+                                 : "Automatically uses the selected application's native icon in the context menu and opens the right-clicked folder with it.")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                        }
+                    }
                 } else if editorModel.item.actionKind == .customCommand {
                     Section {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(isTR ? "Çalıştırılacak Shell Komutu ($CONTEXT_DIR = sağ tıklanan klasör):" : "Shell Command ($CONTEXT_DIR = right-clicked folder):")
                                 .font(.system(size: 12))
-                            TextField("open -a 'Visual Studio Code' \"$CONTEXT_DIR\"", text: $editorModel.item.customShellCommand)
+                            TextField("open -a 'Antigravity' \"$CONTEXT_DIR\"", text: $editorModel.item.customShellCommand)
                                 .font(.system(size: 12, design: .monospaced))
                         }
                     }
                 }
 
-                if !editorModel.item.useSystemFileIcon || editorModel.item.actionKind != .createFile {
-                    Section {
-                        TextField(isTR ? "SF Symbol İkon Adı (ör. doc.text, terminal):" : "SF Symbol Name (e.g. doc.text, terminal):", text: $editorModel.item.iconSymbol)
-                        Picker(isTR ? "İkon Rengi:" : "Icon Color:", selection: $editorModel.item.iconColor) {
-                            ForEach(IconColorOption.allCases) { opt in
-                                Text(opt.label(isTR: isTR)).tag(opt)
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text(isTR ? "Özel Uygulama / Görsel İkonu:" : "Custom App / Image Icon:")
+                                .font(.system(size: 12, weight: .medium))
+                            TextField(isTR ? "Boş bırakılırsa SF Symbol kullanılır" : "Leave empty to use SF Symbol", text: $editorModel.item.customAppOrIconPath)
+                                .textFieldStyle(.roundedBorder)
+                            Button(isTR ? "Seç (.app / .icns / .png)..." : "Choose...") {
+                                chooseAppOrIcon(onlyApps: false)
+                            }
+                            if !editorModel.item.customAppOrIconPath.isEmpty {
+                                Button(isTR ? "Temizle" : "Clear") {
+                                    editorModel.item.customAppOrIconPath = ""
+                                }
                             }
                         }
-                    }
-                } else {
-                    Section {
-                        Picker(isTR ? "Sembol İkon Rengi:" : "Symbol Icon Color:", selection: $editorModel.item.iconColor) {
+
+                        if editorModel.item.customAppOrIconPath.isEmpty && (!editorModel.item.useSystemFileIcon || editorModel.item.actionKind != .createFile) {
+                            Divider()
+                            TextField(isTR ? "SF Symbol İkon Adı (ör. sparkles, terminal):" : "SF Symbol Name (e.g. sparkles, terminal):", text: $editorModel.item.iconSymbol)
+
+                            Text(isTR ? "Hızlı SF Symbol Seçici (Tıklayın):" : "Quick SF Symbol Picker (Click to select):")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+
+                            let quickSymbols = [
+                                "sparkles", "wand.and.stars", "terminal", "chevron.left.forwardslash.chevron.right",
+                                "folder.badge.plus", "doc.text", "bolt.fill", "hammer.fill",
+                                "cpu", "globe", "paintbrush.fill", "paperplane.fill",
+                                "play.rectangle.fill", "cube.box.fill", "link", "gearshape.fill"
+                            ]
+                            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 8), spacing: 6) {
+                                ForEach(quickSymbols, id: \.self) { sym in
+                                    Button(action: {
+                                        editorModel.item.iconSymbol = sym
+                                    }) {
+                                        ZStack {
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .fill(editorModel.item.iconSymbol == sym ? Color.accentColor.opacity(0.22) : Color.primary.opacity(0.06))
+                                                .frame(height: 28)
+                                            Image(systemName: sym)
+                                                .font(.system(size: 13, weight: .medium))
+                                                .foregroundColor(editorModel.item.iconSymbol == sym ? .accentColor : .primary)
+                                        }
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help(sym)
+                                }
+                            }
+                        }
+
+                        Picker(isTR ? "SF Symbol İkon Rengi:" : "SF Symbol Icon Color:", selection: $editorModel.item.iconColor) {
                             ForEach(IconColorOption.allCases) { opt in
                                 Text(opt.label(isTR: isTR)).tag(opt)
                             }
@@ -1082,7 +1150,31 @@ struct ItemEditorSheet: View {
             }
         }
         .padding(20)
-        .frame(width: 520, height: 500)
+        .frame(width: 560, height: 580)
+    }
+
+    private func chooseAppOrIcon(onlyApps: Bool) {
+        let panel = NSOpenPanel()
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.treatsFilePackagesAsDirectories = false
+        if onlyApps {
+            panel.allowedContentTypes = [.application]
+        } else {
+            panel.allowedContentTypes = [.application, .image, .icns]
+        }
+        if panel.runModal() == .OK, let url = panel.url {
+            editorModel.item.customAppOrIconPath = url.path
+            if url.pathExtension == "app" {
+                let appName = url.deletingPathExtension().lastPathComponent
+                if editorModel.item.actionKind == .openWithApp {
+                    editorModel.item.titleTR = "\(appName) ile Aç"
+                    editorModel.item.titleEN = "Open with \(appName)"
+                }
+            }
+        }
     }
 }
 

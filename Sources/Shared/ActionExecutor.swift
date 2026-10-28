@@ -30,6 +30,9 @@ public final class ActionExecutor {
             return createFile(for: item, inDirectory: folderPath, config: activeConfig)
         case .openTerminal:
             return openTerminal(atDirectory: folderPath, config: activeConfig)
+        case .openWithApp:
+            let pathToOpen = selectedPaths.first ?? folderPath
+            return openWithApplication(appPath: item.customAppOrIconPath, targetPath: pathToOpen)
         case .copyPath:
             let pathToCopy = selectedPaths.first ?? folderPath
             NSPasteboard.general.clearContents()
@@ -209,6 +212,30 @@ public final class ActionExecutor {
             candidate = makeURL(index: counter)
         }
         return candidate
+    }
+
+    public func openWithApplication(appPath: String, targetPath: String) -> Bool {
+        let trimmedApp = appPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedApp.isEmpty else { return false }
+
+        let targetURL = URL(fileURLWithPath: targetPath)
+        let appURL = URL(fileURLWithPath: trimmedApp)
+        if FileManager.default.fileExists(atPath: appURL.path) {
+            let openConfig = NSWorkspace.OpenConfiguration()
+            openConfig.activates = true
+            NSWorkspace.shared.open([targetURL], withApplicationAt: appURL, configuration: openConfig, completionHandler: nil)
+            return true
+        }
+
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        task.arguments = ["-a", trimmedApp, targetPath]
+        do {
+            try task.run()
+            return true
+        } catch {
+            return false
+        }
     }
 
     public func openTerminal(atDirectory directoryPath: String, config: MenuConfiguration) -> Bool {

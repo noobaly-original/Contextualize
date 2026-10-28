@@ -147,6 +147,7 @@ public enum IconColorOption: String, Codable, CaseIterable, Identifiable {
 public enum ActionKind: String, Codable, CaseIterable, Identifiable {
     case createFile = "createFile"
     case openTerminal = "openTerminal"
+    case openWithApp = "openWithApp"
     case copyPath = "copyPath"
     case customCommand = "customCommand"
 
@@ -158,6 +159,8 @@ public enum ActionKind: String, Codable, CaseIterable, Identifiable {
             return isTR ? "Yeni Dosya Oluştur" : "Create New File"
         case .openTerminal:
             return isTR ? "Burada Terminal Aç" : "Open Terminal Here"
+        case .openWithApp:
+            return isTR ? "Uygulama ile Aç (Antigravity, Zed, VS Code vb.)" : "Open Folder with Application"
         case .copyPath:
             return isTR ? "Klasör Yolunu Kopyala" : "Copy Folder Path"
         case .customCommand:
@@ -220,6 +223,8 @@ public struct ContextMenuItem: Codable, Identifiable, Equatable {
     public var iconSymbol: String
     public var iconColor: IconColorOption
     public var useSystemFileIcon: Bool
+    /// Optional path to a `.app` bundle (e.g. `/Applications/Antigravity.app`) or custom `.png`/`.icns` icon file.
+    public var customAppOrIconPath: String
     public var isEnabled: Bool
     /// When true, this item is folded inside a hoverable submenu (e.g. "New..." -> "Text File").
     /// When false, this item appears directly on the top-level right-click menu.
@@ -242,6 +247,7 @@ public struct ContextMenuItem: Codable, Identifiable, Equatable {
         iconSymbol: String = "doc.badge.plus",
         iconColor: IconColorOption = .white,
         useSystemFileIcon: Bool = true,
+        customAppOrIconPath: String = "",
         isEnabled: Bool = true,
         isFolded: Bool = true,
         submenuGroup: SubmenuGroup = .newMenu,
@@ -261,6 +267,7 @@ public struct ContextMenuItem: Codable, Identifiable, Equatable {
         self.iconSymbol = iconSymbol
         self.iconColor = iconColor
         self.useSystemFileIcon = useSystemFileIcon
+        self.customAppOrIconPath = customAppOrIconPath
         self.isEnabled = isEnabled
         self.isFolded = isFolded
         self.submenuGroup = submenuGroup
@@ -283,6 +290,7 @@ public struct ContextMenuItem: Codable, Identifiable, Equatable {
         self.iconSymbol = try c.decodeIfPresent(String.self, forKey: .iconSymbol) ?? "doc.badge.plus"
         self.iconColor = try c.decodeIfPresent(IconColorOption.self, forKey: .iconColor) ?? .white
         self.useSystemFileIcon = try c.decodeIfPresent(Bool.self, forKey: .useSystemFileIcon) ?? true
+        self.customAppOrIconPath = try c.decodeIfPresent(String.self, forKey: .customAppOrIconPath) ?? ""
         self.isEnabled = try c.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
         self.isFolded = try c.decodeIfPresent(Bool.self, forKey: .isFolded) ?? true
         self.submenuGroup = try c.decodeIfPresent(SubmenuGroup.self, forKey: .submenuGroup) ?? .newMenu
@@ -308,6 +316,21 @@ public struct ContextMenuItem: Codable, Identifiable, Equatable {
     }
 
     public func resolvedIcon() -> NSImage? {
+        if !customAppOrIconPath.isEmpty {
+            let sourceIcon: NSImage?
+            if customAppOrIconPath.hasSuffix(".app") || FileManager.default.fileExists(atPath: customAppOrIconPath) {
+                if customAppOrIconPath.hasSuffix(".png") || customAppOrIconPath.hasSuffix(".icns") || customAppOrIconPath.hasSuffix(".jpg") {
+                    sourceIcon = NSImage(contentsOfFile: customAppOrIconPath)
+                } else {
+                    sourceIcon = NSWorkspace.shared.icon(forFile: customAppOrIconPath)
+                }
+            } else {
+                sourceIcon = nil
+            }
+            if let src = sourceIcon {
+                return Self.rasterizeFullColorIcon(src, size: NSSize(width: 16, height: 16))
+            }
+        }
         if useSystemFileIcon && actionKind == .createFile && !fileExtension.isEmpty {
             let cleanExt = fileExtension.trimmingCharacters(in: CharacterSet(charactersIn: "."))
             if let utType = UTType(filenameExtension: cleanExt) {
@@ -317,6 +340,38 @@ public struct ContextMenuItem: Codable, Identifiable, Equatable {
             }
         }
         return iconColor.renderedSymbolImage(name: iconSymbol)
+    }
+
+    private static func rasterizeFullColorIcon(_ source: NSImage, size: NSSize) -> NSImage {
+        let pixelW = Int(size.width * 2)
+        let pixelH = Int(size.height * 2)
+        guard let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: pixelW,
+            pixelsHigh: pixelH,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ) else {
+            source.size = size
+            return source
+        }
+        rep.size = size
+        NSGraphicsContext.saveGraphicsState()
+        if let ctx = NSGraphicsContext(bitmapImageRep: rep) {
+            NSGraphicsContext.current = ctx
+            ctx.imageInterpolation = .high
+            source.draw(in: NSRect(origin: .zero, size: size), from: .zero, operation: .copy, fraction: 1.0)
+        }
+        NSGraphicsContext.restoreGraphicsState()
+        let out = NSImage(size: size)
+        out.addRepresentation(rep)
+        out.isTemplate = false
+        return out
     }
 }
 
