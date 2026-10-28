@@ -140,7 +140,9 @@ public final class ActionExecutor {
             // Ensure current modification timestamp on copied template files
             try? fm.setAttributes([.modificationDate: Date(), .creationDate: Date()], ofItemAtPath: targetURL.path)
 
-            if config.revealCreatedFileInFinder {
+            let desktopPath = (ConfigStore.shared.realUserHomePath as NSString).appendingPathComponent("Desktop")
+            let isDesktop = URL(fileURLWithPath: directoryPath).standardizedFileURL == URL(fileURLWithPath: desktopPath).standardizedFileURL
+            if config.revealCreatedFileInFinder && !isDesktop {
                 NSWorkspace.shared.selectFile(targetURL.path, inFileViewerRootedAtPath: directoryPath)
             }
             if item.openAfterCreation {
